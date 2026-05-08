@@ -40,4 +40,4 @@
 
 ## 参与贡献
 
-想看到更多工具的接入指南？欢迎提 Issue 或 Pull Request，按现有指南的结构添加新的接入文档即可。
+想看到更多工具的接入指南？请参阅 [CONTRIBUTING.md](./CONTRIBUTING.md) 了解 Issue 和 Pull Request 的提交规范。
