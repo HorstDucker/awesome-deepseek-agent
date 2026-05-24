@@ -42,6 +42,8 @@ class Shell:
             "kill":     self._cmd_kill,
             # scheduler
             "sched":    self._cmd_sched,
+            # cron
+            "cron":     self._cmd_cron,
             # system
             "stats":    self._cmd_stats,
             "history":  self._cmd_history,
@@ -231,6 +233,92 @@ class Shell:
         print(json.dumps(info, indent=2, default=str))
 
     # ------------------------------------------------------------------
+    # Cron commands
+    # ------------------------------------------------------------------
+
+    def _cmd_cron(self, args: List[str]) -> None:
+        sub = args[0] if args else "list"
+        rest = args[1:]
+
+        if sub == "list":
+            jobs = self.kernel.syscall("cron_list")
+            if not jobs:
+                print("  (no cron jobs)")
+                return
+            print(f"  {'ID':>4}  {'NAME':<20}  {'INTERVAL':<8}  {'RUNS':>4}  {'LAST RUN':<10}  EN  ERROR")
+            for j in jobs:
+                en = "yes" if j["enabled"] else "no"
+                err = j["last_error"] or ""
+                print(f"  {j['id']:>4}  {j['name']:<20}  {j['interval']:<8}  {j['run_count']:>4}  {j['last_run']:<10}  {en:<3}  {err}")
+
+        elif sub == "add":
+            # cron add <name> <interval> <shell-command…>
+            if len(rest) < 3:
+                print("  usage: cron add <name> <interval> <command…>")
+                print("  example: cron add heartbeat 10s write /var/log/hb.txt tick")
+                return
+            name, interval_spec = rest[0], rest[1]
+            cmd_str = " ".join(rest[2:])
+            # build a closure that replays the shell command
+            shell_ref = self
+
+            def _job_action(c: str = cmd_str) -> str:
+                parts = c.split(None, 1)
+                handler = shell_ref._commands.get(parts[0])
+                if handler:
+                    handler(parts[1:] if len(parts) > 1 else [])
+                    return c
+                return f"unknown command: {parts[0]}"
+
+            try:
+                job_id = self.kernel.syscall("cron_add", name, interval_spec, _job_action)
+                print(f"  job #{job_id} '{name}' added — runs every {interval_spec}")
+            except ValueError as exc:
+                print(f"  {exc}")
+
+        elif sub == "remove" or sub == "rm":
+            if not rest or not rest[0].isdigit():
+                print("  usage: cron remove <id>")
+                return
+            ok = self.kernel.syscall("cron_remove", int(rest[0]))
+            print(f"  job #{rest[0]} {'removed' if ok else 'not found'}")
+
+        elif sub == "enable":
+            if not rest or not rest[0].isdigit():
+                print("  usage: cron enable <id>")
+                return
+            self.kernel.syscall("cron_enable", int(rest[0]))
+            print(f"  job #{rest[0]} enabled")
+
+        elif sub == "disable":
+            if not rest or not rest[0].isdigit():
+                print("  usage: cron disable <id>")
+                return
+            self.kernel.syscall("cron_disable", int(rest[0]))
+            print(f"  job #{rest[0]} disabled")
+
+        elif sub == "run":
+            if not rest or not rest[0].isdigit():
+                print("  usage: cron run <id>")
+                return
+            ok = self.kernel.syscall("cron_run", int(rest[0]))
+            print(f"  job #{rest[0]} {'triggered' if ok else 'not found'}")
+
+        elif sub == "log":
+            n = int(rest[0]) if rest and rest[0].isdigit() else 10
+            entries = self.kernel.syscall("cron_log", n)
+            if not entries:
+                print("  (no log entries yet)")
+                return
+            for e in entries:
+                err = f"  ERR: {e['error']}" if e["error"] else ""
+                print(f"  {e['ts']}  #{e['id']} {e['name']}  run={e['run_count']}{err}")
+
+        else:
+            print(f"  unknown subcommand: {sub!r}")
+            print("  subcommands: list, add, remove, enable, disable, run, log")
+
+    # ------------------------------------------------------------------
     # System commands
     # ------------------------------------------------------------------
 
@@ -267,6 +355,14 @@ class Shell:
             ],
             "Scheduler": [
                 ("sched", "show scheduler status and recent log"),
+            ],
+            "Cron": [
+                ("cron list",            "list all scheduled jobs"),
+                ("cron add <n> <iv> <cmd>", "add a job (iv: 30s / 5m / 2h / 1d)"),
+                ("cron remove <id>",     "delete a job"),
+                ("cron enable/disable",  "<id>  toggle a job on/off"),
+                ("cron run <id>",        "fire a job immediately"),
+                ("cron log [n]",         "show last n fire events (default 10)"),
             ],
             "System": [
                 ("stats",   "kernel statistics"),

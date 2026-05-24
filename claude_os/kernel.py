@@ -13,9 +13,10 @@ from .memory import MemoryBus
 from .process import ProcessTable
 from .fs import VirtualFS
 from .scheduler import Scheduler
+from .cron import CronDaemon
 
 
-KERNEL_VERSION = "0.1.0"
+KERNEL_VERSION = "0.2.0"
 BOOT_BANNER = r"""
    ___  _                 _        ___  ____
   / __\| |  __ _  _   _ | |  ___ / _ \/ ___|
@@ -47,6 +48,7 @@ class Kernel:
         self.processes = ProcessTable()
         self.fs = VirtualFS()
         self.scheduler = Scheduler(self.processes)
+        self.cron = CronDaemon()
         self._syscall_table: Dict[str, Callable[..., Any]] = {}
         self._register_builtin_syscalls()
 
@@ -59,9 +61,11 @@ class Kernel:
         self.memory.init()
         self.fs.init()
         self.scheduler.start()
+        self.cron.start()
         self.memory.write("kernel.status", "running")
 
     def shutdown(self) -> None:
+        self.cron.stop()
         self.scheduler.stop()
         self.memory.write("kernel.status", "halted")
         self.stats.refresh()
@@ -86,6 +90,13 @@ class Kernel:
                 "fs_delete": self.fs.delete,
                 "sched_queue": self.scheduler.enqueue,
                 "sched_status": self.scheduler.status,
+                "cron_add": self.cron.add,
+                "cron_remove": self.cron.remove,
+                "cron_enable": self.cron.enable,
+                "cron_disable": self.cron.disable,
+                "cron_list": self.cron.list_jobs,
+                "cron_log": self.cron.get_log,
+                "cron_run": self.cron.run_now,
                 "kernel_stats": self._get_stats,
             }
         )
@@ -113,5 +124,6 @@ class Kernel:
             "syscall_count": self.stats.syscall_count,
             "memory_keys": len(self.memory.list_keys()),
             "processes": len(self.processes.list_all()),
+            "cron_jobs": len(self.cron.list_jobs()),
             "fs_entries": self.fs.entry_count(),
         }
