@@ -130,10 +130,78 @@ def run_tests() -> None:
     ok("kernel: fs syscalls")
 
     stats = k.syscall("kernel_stats")
-    assert stats["version"] == "0.1.0"
+    assert stats["version"] == "0.2.0"
     ok("kernel: stats syscall")
 
     k.shutdown()
+
+    # ------------------------------------------------------------------
+    # CronDaemon
+    # ------------------------------------------------------------------
+    from claude_os.cron import CronDaemon, parse_interval
+
+    assert parse_interval("30s") == 30.0
+    assert parse_interval("5m") == 300.0
+    assert parse_interval("2h") == 7200.0
+    assert parse_interval("1d") == 86400.0
+    ok("cron: parse_interval")
+
+    cron = CronDaemon()
+    cron.start()
+
+    fired = []
+    job_id = cron.add("test-job", "1s", lambda: fired.append(1))
+    assert len(cron.list_jobs()) == 1
+    ok("cron: add job")
+
+    time.sleep(1.5)
+    assert len(fired) >= 1, f"job not fired, fired={fired}"
+    ok("cron: job fires on interval")
+
+    cron.disable(job_id)
+    fired_before = len(fired)
+    time.sleep(1.5)
+    assert len(fired) == fired_before, "disabled job should not fire"
+    ok("cron: disable prevents firing")
+
+    cron.enable(job_id)
+    cron.run_now(job_id)
+    assert len(fired) > fired_before
+    ok("cron: run_now fires immediately")
+
+    log = cron.get_log()
+    assert len(log) > 0
+    ok("cron: fire log populated")
+
+    cron.remove(job_id)
+    assert len(cron.list_jobs()) == 0
+    ok("cron: remove job")
+
+    cron.stop()
+
+    # ------------------------------------------------------------------
+    # Kernel cron syscalls
+    # ------------------------------------------------------------------
+    k2 = Kernel()
+    k2.boot()
+
+    hits = []
+    jid = k2.syscall("cron_add", "k-job", "1s", lambda: hits.append(1))
+    time.sleep(1.5)
+    assert len(hits) >= 1
+    ok("kernel: cron_add + fires")
+
+    k2.syscall("cron_disable", jid)
+    before = len(hits)
+    time.sleep(1.5)
+    assert len(hits) == before
+    ok("kernel: cron_disable via syscall")
+
+    k2.syscall("cron_remove", jid)
+    assert k2.syscall("cron_list") == []
+    ok("kernel: cron_remove via syscall")
+
+    k2.shutdown()
 
     # ------------------------------------------------------------------
     # Summary
