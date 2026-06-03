@@ -44,6 +44,10 @@ class Shell:
             "sched":    self._cmd_sched,
             # cron
             "cron":     self._cmd_cron,
+            # secrets
+            "secret":   self._cmd_secret,
+            # coworkers
+            "coworker": self._cmd_coworker,
             # system
             "stats":    self._cmd_stats,
             "history":  self._cmd_history,
@@ -319,6 +323,128 @@ class Shell:
             print("  subcommands: list, add, remove, enable, disable, run, log")
 
     # ------------------------------------------------------------------
+    # Secret commands
+    # ------------------------------------------------------------------
+
+    def _cmd_secret(self, args: List[str]) -> None:
+        sub = args[0] if args else "list"
+        rest = args[1:]
+
+        if sub == "list":
+            names = self.kernel.syscall("secret_list")
+            if not names:
+                print("  (no secrets stored)")
+                return
+            for n in names:
+                print(f"  {n} = ***")
+
+        elif sub == "set":
+            if len(rest) < 2:
+                print("  usage: secret set <NAME> <VALUE>")
+                return
+            self.kernel.syscall("secret_set", rest[0], rest[1])
+            print(f"  secret {rest[0]!r} stored")
+
+        elif sub == "get":
+            if not rest:
+                print("  usage: secret get <NAME>")
+                return
+            val = self.kernel.syscall("secret_get", rest[0])
+            if val is None:
+                print(f"  {rest[0]!r}: not found")
+            else:
+                print(f"  {rest[0]} = ***")
+
+        elif sub == "delete" or sub == "rm":
+            if not rest:
+                print("  usage: secret delete <NAME>")
+                return
+            ok = self.kernel.syscall("secret_delete", rest[0])
+            print(f"  {rest[0]!r} {'deleted' if ok else 'not found'}")
+
+        elif sub == "env":
+            count = self.kernel.syscall("secret_load_env")
+            print(f"  loaded {count} secret(s) from environment")
+
+        else:
+            print(f"  unknown subcommand: {sub!r}")
+            print("  subcommands: list, set, get, delete, env")
+
+    # ------------------------------------------------------------------
+    # Coworker commands
+    # ------------------------------------------------------------------
+
+    def _cmd_coworker(self, args: List[str]) -> None:
+        sub = args[0] if args else "list"
+        rest = args[1:]
+
+        if sub == "list":
+            workers = self.kernel.syscall("coworker_list")
+            if not workers:
+                print("  (no coworkers registered)")
+                return
+            print(f"  {'NAME':<20}  {'SCHEDULE':<8}  EN   SECRETS")
+            for w in workers:
+                en = "yes" if w["enabled"] else "no"
+                secs = ", ".join(w["secrets"]) or "(none)"
+                print(f"  {w['name']:<20}  {w['schedule']:<8}  {en:<4} {secs}")
+
+        elif sub == "add":
+            # coworker add <name> <schedule> [secret_names…]
+            if len(rest) < 2:
+                print("  usage: coworker add <name> <schedule> [SECRET_NAME…]")
+                print("  example: coworker add reporter 1h DEEPSEEK_API_KEY")
+                return
+            name, schedule = rest[0], rest[1]
+            secret_names = rest[2:]
+            vault_ref = self.kernel.secrets
+
+            def _demo_action(secrets: dict, _n: str = name) -> str:
+                return f"[{_n}] ran at {time.strftime('%H:%M:%S')}"
+
+            try:
+                job_id = self.kernel.syscall(
+                    "coworker_register", name, schedule, secret_names, _demo_action
+                )
+                print(f"  coworker '{name}' registered (job #{job_id}) — runs every {schedule}")
+                if secret_names:
+                    print(f"  uses secrets: {', '.join(secret_names)}")
+            except ValueError as exc:
+                print(f"  {exc}")
+
+        elif sub == "remove" or sub == "rm":
+            if not rest:
+                print("  usage: coworker remove <name>")
+                return
+            ok = self.kernel.syscall("coworker_unregister", rest[0])
+            print(f"  coworker '{rest[0]}' {'removed' if ok else 'not found'}")
+
+        elif sub == "fire":
+            if not rest:
+                print("  usage: coworker fire <name>")
+                return
+            ok = self.kernel.syscall("coworker_fire", rest[0])
+            print(f"  coworker '{rest[0]}' {'triggered' if ok else 'not found'}")
+
+        elif sub == "enable":
+            if not rest:
+                print("  usage: coworker enable <name>")
+                return
+            ok = self.kernel.syscall("coworker_enable", rest[0])
+            print(f"  coworker '{rest[0]}' {'enabled' if ok else 'not found'}")
+
+        elif sub == "disable":
+            if not rest:
+                print("  usage: coworker disable <name>")
+                return
+            ok = self.kernel.syscall("coworker_disable", rest[0])
+            print(f"  coworker '{rest[0]}' {'disabled' if ok else 'not found'}")
+
+        else:
+            print(f"  unknown subcommand: {sub!r}")
+            print("  subcommands: list, add, remove, fire, enable, disable")
+
+    # ------------------------------------------------------------------
     # System commands
     # ------------------------------------------------------------------
 
@@ -363,6 +489,20 @@ class Shell:
                 ("cron enable/disable",  "<id>  toggle a job on/off"),
                 ("cron run <id>",        "fire a job immediately"),
                 ("cron log [n]",         "show last n fire events (default 10)"),
+            ],
+            "Secrets": [
+                ("secret list",          "list secret names (values always masked)"),
+                ("secret set <N> <V>",   "store a secret in-memory"),
+                ("secret get <N>",       "confirm a secret exists (shows ***)"),
+                ("secret delete <N>",    "remove a secret"),
+                ("secret env",           "load secrets from env vars (*_API_KEY etc.)"),
+            ],
+            "Coworkers": [
+                ("coworker list",        "list registered background agents"),
+                ("coworker add <N> <IV> [SECRETS…]", "register a named coworker"),
+                ("coworker remove <N>",  "unregister a coworker"),
+                ("coworker fire <N>",    "run a coworker immediately"),
+                ("coworker enable/disable <N>", "toggle a coworker on/off"),
             ],
             "System": [
                 ("stats",   "kernel statistics"),
