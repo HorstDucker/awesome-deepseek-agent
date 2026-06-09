@@ -65,7 +65,12 @@ class Shell:
                 break
             if not line:
                 continue
-            self._history.append(line)
+            # Redact secret values before storing in history
+            _hist_line = line
+            _parts = line.split()
+            if len(_parts) >= 3 and _parts[0] == "secret" and _parts[1] == "set":
+                _hist_line = f"{_parts[0]} {_parts[1]} {_parts[2]} ***"
+            self._history.append(_hist_line)
             self._dispatch(line)
 
     # ------------------------------------------------------------------

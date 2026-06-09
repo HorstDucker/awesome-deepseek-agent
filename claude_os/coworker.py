@@ -61,16 +61,15 @@ class CoworkerRegistry:
             secrets = {k: vault_ref.get(k) or "" for k in secret_names_copy}
             return action(secrets)
 
-        job_id = self._cron.add(name, schedule, _wrapped)
-        worker = Coworker(
-            name=name,
-            schedule=schedule,
-            secret_names=secret_names_copy,
-            action=action,
-            job_id=job_id,
-        )
         with self._lock:
-            self._workers[name] = worker
+            job_id = self._cron.add(name, schedule, _wrapped)
+            self._workers[name] = Coworker(
+                name=name,
+                schedule=schedule,
+                secret_names=secret_names_copy,
+                action=action,
+                job_id=job_id,
+            )
         return job_id
 
     def unregister(self, name: str) -> bool:
