@@ -65,6 +65,7 @@ class Shell:
                 break
             if not line:
                 continue
+            self._history.append(line)
             # Redact secret values before storing in history
             _hist_line = line
             _parts = line.split()
