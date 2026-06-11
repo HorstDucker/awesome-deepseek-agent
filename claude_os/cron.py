@@ -68,8 +68,6 @@ class CronJob:
             self.last_error = None
         except Exception as exc:
             self.last_result = None
-            self.last_error = str(exc)
-            # Truncate error message to avoid leaking secret values from exception text
             msg = str(exc)
             self.last_error = msg[:120] + "…" if len(msg) > 120 else msg
 
