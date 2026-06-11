@@ -14,6 +14,8 @@ from .process import ProcessTable
 from .fs import VirtualFS
 from .scheduler import Scheduler
 from .cron import CronDaemon
+from .secrets import SecretVault
+from .coworker import CoworkerRegistry
 
 
 KERNEL_VERSION = "0.2.0"
@@ -49,6 +51,8 @@ class Kernel:
         self.fs = VirtualFS()
         self.scheduler = Scheduler(self.processes)
         self.cron = CronDaemon()
+        self.secrets = SecretVault()
+        self.coworkers = CoworkerRegistry(self.cron, self.secrets)
         self._syscall_table: Dict[str, Callable[..., Any]] = {}
         self._register_builtin_syscalls()
 
@@ -58,6 +62,13 @@ class Kernel:
 
     def boot(self) -> None:
         print(BOOT_BANNER)
+        self._start_subsystems()
+
+    def boot_silent(self) -> None:
+        """Boot without printing the banner — for headless/CI use."""
+        self._start_subsystems()
+
+    def _start_subsystems(self) -> None:
         self.memory.init()
         self.fs.init()
         self.scheduler.start()
@@ -65,11 +76,18 @@ class Kernel:
         self.memory.write("kernel.status", "running")
 
     def shutdown(self) -> None:
+        self._stop_subsystems()
+        print(f"\n[kernel] shutdown — uptime {self.stats.uptime_seconds:.1f}s")
+
+    def shutdown_silent(self) -> None:
+        """Shutdown without printing — for headless/CI use."""
+        self._stop_subsystems()
+
+    def _stop_subsystems(self) -> None:
         self.cron.stop()
         self.scheduler.stop()
         self.memory.write("kernel.status", "halted")
         self.stats.refresh()
-        print(f"\n[kernel] shutdown — uptime {self.stats.uptime_seconds:.1f}s")
 
     # ------------------------------------------------------------------
     # Syscall interface
@@ -97,6 +115,17 @@ class Kernel:
                 "cron_list": self.cron.list_jobs,
                 "cron_log": self.cron.get_log,
                 "cron_run": self.cron.run_now,
+                "secret_set": self.secrets.set,
+                "secret_get": self.secrets.get,
+                "secret_delete": self.secrets.delete,
+                "secret_list": self.secrets.list_names,
+                "secret_load_env": self.secrets.load_env,
+                "coworker_register": self.coworkers.register,
+                "coworker_unregister": self.coworkers.unregister,
+                "coworker_list": self.coworkers.list_workers,
+                "coworker_fire": self.coworkers.fire,
+                "coworker_enable": self.coworkers.enable,
+                "coworker_disable": self.coworkers.disable,
                 "kernel_stats": self._get_stats,
             }
         )
@@ -125,5 +154,7 @@ class Kernel:
             "memory_keys": len(self.memory.list_keys()),
             "processes": len(self.processes.list_all()),
             "cron_jobs": len(self.cron.list_jobs()),
+            "coworkers": len(self.coworkers.list_workers()),
+            "secrets": len(self.secrets.list_names()),
             "fs_entries": self.fs.entry_count(),
         }

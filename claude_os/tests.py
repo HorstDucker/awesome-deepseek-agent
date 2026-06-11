@@ -204,6 +204,89 @@ def run_tests() -> None:
     k2.shutdown()
 
     # ------------------------------------------------------------------
+    # SecretVault tests
+    # ------------------------------------------------------------------
+
+    from .secrets import SecretVault
+
+    vault = SecretVault()
+
+    vault.set("MY_KEY", "s3cr3t")
+    assert vault.get("MY_KEY") == "s3cr3t"
+    ok("secret: set/get")
+
+    assert vault.list_names() == ["MY_KEY"]
+    ok("secret: list_names returns names only")
+
+    vault.delete("MY_KEY")
+    assert vault.get("MY_KEY") is None
+    ok("secret: delete")
+
+    import os as _os
+    _os.environ["TEST_API_KEY"] = "val1"
+    _os.environ["CLAUDE_SECRET_FOO"] = "val2"
+    count = vault.load_env()
+    assert count >= 2
+    assert vault.get("TEST_API_KEY") == "val1"
+    assert vault.get("CLAUDE_SECRET_FOO") == "val2"
+    del _os.environ["TEST_API_KEY"]
+    del _os.environ["CLAUDE_SECRET_FOO"]
+    ok("secret: load_env matches *_API_KEY and CLAUDE_SECRET_*")
+
+    # secrets must not appear in kernel memory
+    k3 = Kernel()
+    k3.boot_silent()
+    k3.syscall("secret_set", "HIDDEN", "topsecret")
+    mem_keys = k3.syscall("mem_list")
+    assert "HIDDEN" not in mem_keys
+    k3.shutdown_silent()
+    ok("secret: never stored in memory bus")
+
+    # ------------------------------------------------------------------
+    # CoworkerRegistry tests
+    # ------------------------------------------------------------------
+
+    from .coworker import CoworkerRegistry
+    from .cron import CronDaemon
+
+    cron_d = CronDaemon()
+    cron_d.start()
+    v2 = SecretVault()
+    v2.set("APIKEY", "abc")
+    registry = CoworkerRegistry(cron_d, v2)
+
+    received: list = []
+
+    def _worker_action(secrets: dict) -> None:
+        received.append(secrets.get("APIKEY"))
+
+    jid2 = registry.register("bot", "1d", ["APIKEY"], _worker_action)
+    assert jid2 > 0
+    ok("coworker: register returns job_id")
+
+    workers = registry.list_workers()
+    assert len(workers) == 1
+    assert workers[0]["name"] == "bot"
+    ok("coworker: list_workers")
+
+    ok_fired = registry.fire("bot")
+    assert ok_fired
+    assert received == ["abc"]
+    ok("coworker: fire injects secrets into action")
+
+    registry.disable("bot")
+    assert registry.list_workers()[0]["enabled"] is False
+    registry.enable("bot")
+    assert registry.list_workers()[0]["enabled"] is True
+    ok("coworker: enable/disable")
+
+    registry.unregister("bot")
+    assert registry.list_workers() == []
+    ok("coworker: unregister")
+
+    cron_d.stop()
+
+    # ------------------------------------------------------------------
     # Summary
     # ------------------------------------------------------------------
     total = passed + failed
