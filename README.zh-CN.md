@@ -45,3 +45,5 @@
 ## 参与贡献
 
 想看到更多工具的接入指南？请参阅 [CONTRIBUTING.md](./CONTRIBUTING.md) 了解 Issue 和 Pull Request 的提交规范。
+
+*由 Grille 使用 Claude Code 创建*

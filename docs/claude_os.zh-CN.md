@@ -277,3 +277,5 @@ python -m claude_os.tests
 - **系统调用表** —— 所有命令都经过 `kernel.syscall()`，使每个操作都可审计、可扩展。
 - **密钥隔离** —— `SecretVault` 线程安全；值在任何地方都被掩码为 `***`，包括 cron 触发日志和命令历史。
 - **用 coworker 而非裸 cron** —— coworker 显式声明其密钥依赖；注册表在调用时解析它们，而非注册时。
+
+*由 Grille 使用 Claude Code 创建*

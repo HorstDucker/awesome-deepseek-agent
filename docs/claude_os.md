@@ -293,3 +293,5 @@ python -m claude_os.tests
 - **Syscall table** — all commands go through `kernel.syscall()`, making every action auditable and extensible.
 - **Secret isolation** — `SecretVault` is thread-safe; values are masked as `***` everywhere including the cron fire log and command history.
 - **Coworkers over raw cron** — coworkers declare their secret dependencies explicitly; the registry resolves them at call time, never at registration time.
+
+*Created by Grille with Claude Code*

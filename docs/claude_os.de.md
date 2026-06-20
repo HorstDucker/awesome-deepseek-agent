@@ -277,3 +277,5 @@ python -m claude_os.tests
 - **Syscall-Tabelle** — alle Befehle laufen über `kernel.syscall()`, wodurch jede Aktion auditierbar und erweiterbar wird.
 - **Secret-Isolation** — `SecretVault` ist thread-sicher; Werte werden überall als `***` maskiert, auch im Cron-Auslöse-Log und in der Befehlshistorie.
 - **Coworker statt nacktem Cron** — Coworker deklarieren ihre Secret-Abhängigkeiten explizit; die Registry löst sie zur Aufrufzeit auf, niemals zur Registrierungszeit.
+
+*Erstellt von Grille mit Claude Code*
