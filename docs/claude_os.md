@@ -1,4 +1,4 @@
-[English](./claude_os.md) | [简体中文](./claude_os.zh-CN.md) | [Deutsch](./claude_os.de.md) · [← Back](../README.md)
+[English](./claude_os.md) | [简体中文](./claude_os.zh-CN.md) · [← Back](../README.md)
 
 # ClaudeOS
 
