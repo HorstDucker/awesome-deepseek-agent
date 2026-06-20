@@ -98,6 +98,7 @@ class Kernel:
             {
                 "mem_read": self.memory.read,
                 "mem_write": self.memory.write,
+                "mem_delete": self.memory.delete,
                 "mem_list": self.memory.list_keys,
                 "proc_spawn": self.processes.spawn,
                 "proc_kill": self.processes.kill,

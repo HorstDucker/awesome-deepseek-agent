@@ -134,9 +134,11 @@ class Shell:
         if not args:
             print("  usage: forget <key>")
             return
-        ok = self.kernel.syscall("mem_write", args[0], None)
-        self.kernel.memory.delete(args[0])
-        print(f"  {args[0]!r} removed from memory")
+        removed = self.kernel.syscall("mem_delete", args[0])
+        if removed:
+            print(f"  {args[0]!r} removed from memory")
+        else:
+            print(f"  {args[0]!r}: not found")
 
     # ------------------------------------------------------------------
     # Filesystem commands
