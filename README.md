@@ -36,7 +36,6 @@ Each guide walks through installation, configuration, and first run — so you c
 | **Langcli** | Open-source AI coding assistant that is 100% compatible with Claude Code and supports mainstream LLM models | [Guide](./docs/langcli.md) |
 | **DeepSeek-TUI** | Open-source Rust terminal coding assistant for DeepSeek-V4 — Codex-style architecture, sandboxed tools, MCP client + server, 1M context. | [Guide](./docs/deepseek-tui.md) |
 | **Factory AI Droid** | AI coding agent with custom model configuration via `settings.json`, supporting both Anthropic and OpenAI-compatible providers. | [Guide](./docs/deepseek-droid-guide.md) |
-| **ClaudeOS** | Minimal AI-native operating system in pure Python — kernel, two-tier memory, virtual filesystem, cooperative process scheduler, and interactive shell. | [Guide](./docs/claude_os.md) |
 
 ## Resources
 
