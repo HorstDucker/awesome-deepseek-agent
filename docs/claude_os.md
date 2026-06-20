@@ -1,3 +1,5 @@
+[English](./claude_os.md) | [简体中文](./claude_os.zh-CN.md) | [Deutsch](./claude_os.de.md) · [← Back](../README.md)
+
 # ClaudeOS
 
 A minimal, AI-native operating system implemented in pure Python — zero external dependencies.  
