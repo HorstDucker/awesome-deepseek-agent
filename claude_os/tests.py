@@ -125,6 +125,11 @@ def run_tests() -> None:
     assert k.syscall("mem_read", "greeting") == "hello"
     ok("kernel: mem syscalls")
 
+    assert k.syscall("mem_delete", "greeting") is True
+    assert k.syscall("mem_read", "greeting") is None
+    assert k.syscall("mem_delete", "greeting") is False
+    ok("kernel: mem_delete syscall")
+
     k.syscall("fs_write", "/tmp/k.txt", "kernel test")
     assert k.syscall("fs_read", "/tmp/k.txt") == "kernel test"
     ok("kernel: fs syscalls")
