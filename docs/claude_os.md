@@ -100,7 +100,12 @@ claude@os:~$ coworker fire fetcher
 | `mem` | List all keys currently in memory |
 | `remember <key> <value> [--persist]` | Store a value; `--persist` survives restarts |
 | `recall <key>` | Retrieve a stored value |
-| `forget <key>` | Delete a key from memory |
+| `forget <key>` | Delete a key from memory (reports `not found` if absent) |
+
+Under the hood these map to memory syscalls: `mem_read`, `mem_write`,
+`mem_delete`, and `mem_list`. `forget` routes through `mem_delete`,
+which returns `True` when a key was removed and `False` when it did not
+exist — so every deletion stays auditable through the syscall table.
 
 ### Filesystem
 | Command | Description |
