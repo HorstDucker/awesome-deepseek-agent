@@ -82,14 +82,15 @@ claude@os:~$ secret get OPENAI_API_KEY
   OPENAI_API_KEY = ***
 
 claude@os:~$ coworker add fetcher 30s OPENAI_API_KEY
-  registered coworker 'fetcher' (id=1, schedule=30s)
+  coworker 'fetcher' registered (job #1) — runs every 30s
+  uses secrets: OPENAI_API_KEY
 
 claude@os:~$ cron list
-  ID  NAME     INTERVAL  RUNS  LAST RUN  ENABLED
-   1  fetcher  30s          0  never     yes
+    ID  NAME                  INTERVAL      RUNS  LAST RUN    EN   ERROR
+     1  fetcher               30s              0  never       yes
 
 claude@os:~$ coworker fire fetcher
-  fired 'fetcher'
+  coworker 'fetcher' triggered
 ```
 
 ## Shell Commands
@@ -128,13 +129,14 @@ exist — so every deletion stays auditable through the syscall table.
 | Command | Description |
 |---------|-------------|
 | `cron list` | List all scheduled jobs |
+| `cron add <name> <interval> <command…>` | Schedule a shell command to run on an interval (e.g. `cron add heartbeat 10s write /var/log/hb.txt tick`) |
 | `cron log [n]` | Show last n fire events (default 10) |
 | `cron enable <id>` | Enable a job |
 | `cron disable <id>` | Disable a job |
 | `cron run <id>` | Fire a job immediately |
-| `cron remove <id>` | Remove a job |
+| `cron remove <id>` | Remove a job (alias: `cron rm <id>`) |
 
-Interval formats: `30s`, `5m`, `2h`, `1d`.
+Interval formats: `30s`, `5m`, `2h`, `1d`. The scheduled command is any built-in shell command; it is replayed by the cron daemon when the interval elapses. `secret` and `coworker` also accept `rm` as an alias for `delete`/`remove`.
 
 ### Secrets
 | Command | Description |
@@ -199,6 +201,39 @@ python web_dashboard.py --quiet  # no demo jobs
 ```
 
 The dashboard polls `/api/state` every second and displays kernel stats, secrets (masked), memory, cron jobs, coworkers, and the fire log — all in a dark-theme browser UI.
+
+## DeepSeek Model Configuration
+
+ClaudeOS itself is dependency-free and does not call any model, but its coworkers
+and headless cron runs are designed to drive [DeepSeek](https://platform.deepseek.com/)
+models through their secret-injected actions. When wiring a coworker to the
+DeepSeek API, the following parameters apply (prices in USD per 1M tokens, as of
+June 2026 — verify current rates on the [pricing page](https://api-docs.deepseek.com/quick_start/pricing)):
+
+| Model | Context | Max output | Input (cache miss) | Input (cache hit) | Output |
+|-------|--------:|-----------:|-------------------:|------------------:|-------:|
+| **DeepSeek-V4-Pro** | 1,048,576 (1M) | 384,000 | $1.74 | ~$0.174 | $3.48 |
+| **DeepSeek-V4-Flash** | 1,048,576 (1M) | 384,000 | $0.14 | ~$0.014 | $0.28 |
+
+- **1M context** (`context_length: 1000000`) is the default across all official
+  DeepSeek services since the V4 release.
+- **Thinking / reasoning mode** is supported and on by default (billed as output).
+  Via the OpenAI-compatible SDK, toggle it with
+  `extra_body={"thinking": {"type": "enabled"}}` and tune depth with
+  `reasoning_effort` (`"high"` or `"xhigh"` for maximum reasoning). The chain of
+  thought is returned as `reasoning_content`, at the same level as `content`
+  (streamed as `delta.reasoning_content`). Sampling parameters incompatible with
+  reasoning are dropped from the request automatically.
+- The legacy model names `deepseek-chat` / `deepseek-reasoner` are deprecated
+  as of 2026-07-24 in favour of the V4 model family.
+
+Store the key as a secret (`secret set DEEPSEEK_API_KEY …` or `secret env`) and
+declare it on the coworker so the registry injects it only at call time:
+
+```
+claude@os:~$ secret set DEEPSEEK_API_KEY sk-...
+claude@os:~$ coworker add reporter 1h DEEPSEEK_API_KEY
+```
 
 ## GitHub Actions / Headless CI
 
