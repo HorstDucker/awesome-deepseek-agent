@@ -151,6 +151,18 @@ def run_tests() -> None:
     assert parse_interval("1d") == 86400.0
     ok("cron: parse_interval")
 
+    # empty/whitespace and malformed specs must raise a clean ValueError
+    for bad in ("", "   ", "abc", "10x"):
+        try:
+            parse_interval(bad)
+        except ValueError:
+            pass
+        else:
+            fail("cron: parse_interval rejects invalid input", f"{bad!r} accepted")
+            break
+    else:
+        ok("cron: parse_interval rejects invalid input")
+
     cron = CronDaemon()
     cron.start()
 

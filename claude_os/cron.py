@@ -28,6 +28,8 @@ def parse_interval(spec: str) -> float:
     """Convert an interval string like '30s', '5m', '2h', '1d' to seconds."""
     units = {"s": 1, "m": 60, "h": 3600, "d": 86400}
     spec = spec.strip().lower()
+    if not spec:
+        raise ValueError("invalid interval: '' (use e.g. 30s, 5m, 2h, 1d)")
     if spec[-1] in units:
         try:
             return float(spec[:-1]) * units[spec[-1]]
